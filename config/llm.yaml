@@ -1,0 +1,39 @@
+tiers:
+  - {
+      name: gemini_lite,
+      model_id: "gemini-3.5-flash-lite",
+      rpm: 15,
+      tpm: 250000,
+      rpd: 500,
+      max_input_tokens: 60000,
+      timeout_s: 20,
+    }
+  - {
+      name: groq_qwen,
+      model_id: "qwen/qwen3.8-27b",
+      rpm: 30,
+      tpm: 8000,
+      rpd: 1000,
+      tpd: 200000,
+      max_input_tokens: 2500,
+      timeout_s: 20,
+    }
+  - {
+      name: groq_gptoss,
+      model_id: "openai/gpt-oss-120b",
+      rpm: 30,
+      tpm: 8000,
+      rpd: 1000,
+      tpd: 200000,
+      max_input_tokens: 2500,
+      timeout_s: 20,
+    }
+  - {
+      name: gemma_26b,
+      model_id: "gemma-4-26b-a4b-it",
+      rpm: 30,
+      tpm: 16000,
+      rpd: 14400,
+      max_input_tokens: 3000,
+      timeout_s: 120,
+    }
