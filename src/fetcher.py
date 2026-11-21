@@ -59,13 +59,32 @@ def decode_body(data: bytes, charset: str | None) -> str:
 
 
 class DomainLimiter:
-    """Guarantees a minimum gap between requests to the same domain."""
+    """Minimum gap between requests to one domain. Widens after a 429, narrows slowly after successes."""
 
     def __init__(self, default_interval: float = 1.0, overrides: dict | None = None):
         self.default = default_interval
-        self.overrides = overrides or {}
+        self.overrides = dict(overrides or {})
+        self._base = dict(self.overrides)          # the configured intervals
         self._next: dict[str, float] = {}
         self._locks: dict[str, asyncio.Lock] = {}
+        self._last_penalty: dict[str, float] = {}
+
+    def _base_interval(self, domain: str) -> float:
+        return self._base.get(domain, self.default)
+
+    def penalize(self, domain: str, factor: float = 1.5, cap: float = 20.0) -> None:
+        now = time.monotonic()
+        cur = self.overrides.get(domain, self.default)
+        if now - self._last_penalty.get(domain, 0.0) < cur:   # one penalty per interval, not per queued request
+            return
+        self._last_penalty[domain] = now
+        self.overrides[domain] = min(cap, max(cur, 0.5) * factor)
+        log.warning("slowing down %s: interval now %.1fs", domain, self.overrides[domain])
+
+    def reward(self, domain: str) -> None:
+        cur = self.overrides.get(domain)
+        if cur is not None:
+            self.overrides[domain] = max(self._base_interval(domain), cur * 0.9)
 
     async def wait(self, domain: str) -> None:
         lock = self._locks.setdefault(domain, asyncio.Lock())
@@ -161,6 +180,8 @@ class Fetcher:
                     async with self.session.get(url, headers=hdrs) as r:
                         data = await r.read()
                         status = r.status
+                        if status == 429:
+                            self.limiter.penalize(domain)
                         if status in RETRY_STATUS and attempt < self.max_retries:
                             ra = parse_retry_after(r.headers.get("Retry-After"))
                             retry_delay = ra if ra is not None else backoff_delay(attempt, self.backoff_base)
@@ -172,6 +193,8 @@ class Fetcher:
                             res.headers = dict(r.headers)
                             res.text = decode_body(data[: self.max_bytes], r.charset)
                             res.error = None if 200 <= status < 300 else f"http_{status}"
+                            if 200 <= status < 300:
+                                self.limiter.reward(domain)
                             break
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 if attempt < self.max_retries:

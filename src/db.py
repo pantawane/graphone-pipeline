@@ -126,6 +126,10 @@ class Database:
     async def __aexit__(self, *exc) -> None:
         await self.close()
 
+    async def existing_keys(self, record_type: str) -> set[str]:
+        cur = await self.conn.execute("SELECT dedupe_key FROM records WHERE record_type=?", (record_type,))
+        return {r[0] for r in await cur.fetchall()}
+
     # ---- "never process the same URL twice" -------------------------------------------------
     async def claim_url(self, url: str, source: str) -> bool:
         """Atomically mark a URL as seen. True = first time (go ahead), False = already seen."""
