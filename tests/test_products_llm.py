@@ -26,3 +26,13 @@ def test_unclear_answer_is_allowed():
 
 def test_exact_slices_use_the_pages_own_wording():
     assert exact_slices(["pro plan $29   per month"], PAGE) == ["Pro plan $29 per month"]
+
+def test_navigation_contact_is_not_enterprise_evidence():
+    page = "Business plan Work with the team to deploy agents. Contact us Product Pricing Company"
+    ev = ["Business plan Work with the team to deploy agents", "Contact us Product Pricing Company"]
+    assert make_validator(page)({"pricing_model": "ENTERPRISE", "evidence": ev}) == "enterprise_inconsistent"
+
+
+def test_get_a_quote_is_enterprise_evidence():
+    page = "Get a quote for your AR. We’ll scope pricing with you on the call."
+    assert make_validator(page)({"pricing_model": "ENTERPRISE", "evidence": ["Get a quote for your AR"]}) is None

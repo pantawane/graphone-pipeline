@@ -150,6 +150,11 @@ class Database:
     async def has_seen(self, url: str) -> bool:
         cur = await self.conn.execute("SELECT 1 FROM seen_urls WHERE url_hash=?", (url_hash(url),))
         return await cur.fetchone() is not None
+    
+    async def release_url(self, url: str) -> None:
+        """Undo claim_url, so a URL whose processing failed can be retried on the next run."""
+        await self.conn.execute("DELETE FROM seen_urls WHERE url_hash=?", (url_hash(url),))
+        await self.conn.commit()
 
     # ---- raw pages (evidence that every record came from a real fetch) -----------------------
     async def save_raw_page(self, url: str, final_url: str, status: int, body: str) -> None:

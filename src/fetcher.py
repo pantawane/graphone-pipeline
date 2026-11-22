@@ -15,6 +15,7 @@ log = logging.getLogger("fetcher")
 
 DEFAULT_UA = os.getenv("USER_AGENT", "FrontierAtlasDemoBot/0.1 (contact: your-email@example.com)")
 RETRY_STATUS = {429, 500, 502, 503, 504}
+NO_RETRY = (aiohttp.ClientConnectorCertificateError, aiohttp.ClientConnectorSSLError, aiohttp.ClientConnectorDNSError)
 
 
 @dataclass
@@ -197,7 +198,7 @@ class Fetcher:
                                 self.limiter.reward(domain)
                             break
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                if attempt < self.max_retries:
+                if attempt < self.max_retries and not isinstance(e, NO_RETRY):
                     retry_delay = backoff_delay(attempt, self.backoff_base)
                     log.warning("%s fetching %s, retry %d/%d in %.1fs",
                                 type(e).__name__, domain, attempt + 1, self.max_retries, retry_delay)

@@ -26,9 +26,10 @@ SKIP_LINK = re.compile(r"blog|news|press|docs|changelog|article|/post|careers|jo
 
 UNIT = r"(?:mo(?:nth)?|yr|year|user|seat|member|credit|token|1k|1m|gb|request|call|employee|agent|project|app)"
 FREE_RE = re.compile(
-    r"\bfree (?:plan|tier|forever|version|account|for (?:individuals|personal|students|startups|small teams))\b"
+    r"\bfree (?:plan|tier|forever|for (?:individuals|personal|students|startups|small teams))\b"
     r"|\bforever free\b|\balways free\b|\bfreemium\b"
-    r"|(?<![\w.])[$€£₹]\s?0(?![\d.,])",
+    r"|(?<![\w.])[$€£₹]\s?0\s+forever\b"
+    rf"|(?<![\w.])[$€£₹]\s?0(?![\d.,])\s*(?:/|per|a|each)\s*{UNIT}\b",
     re.I,
 )
 PAID_RE = re.compile(
@@ -118,9 +119,7 @@ def classify(text: str, allow_enterprise: bool = True):
     if free and (paid or ent):
         return "FREEMIUM", [snippet(text, free), snippet(text, paid or ent)]
     if free:
-        if UPSELL_RE.search(text):
-            return None, "free_only_with_upsell"      # ambiguous -> do not guess
-        return "FREE", [snippet(text, free)]
+        return None, "free_only_needs_llm"            # rules never assign FREE; the evidence-checked LLM step may
     if paid:
         return "PAID", [snippet(text, paid)]
     if ent:
@@ -151,6 +150,8 @@ async def analyse_site(f: Fetcher, website: str):
             if linked:
                 problems.add("fetch_failed")
             continue
+        if not re.search(r"pricing|plans?|price", urlsplit(r.final_url or url).path.lower()):
+            continue                              # e.g. /pricing silently redirected to the homepage
         text = page_text(r.text)
         if len(text) < 200:
             problems.add("js_or_empty")

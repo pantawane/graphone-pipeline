@@ -50,7 +50,8 @@
             "tpm": 16000,
             "max_input_tokens": 3000,
             "max_output_tokens": 1000,
-            "timeout_s": 120
+            "timeout_s": 120,
+            "max_attempts": 1
         }
     ]
 }

@@ -129,3 +129,99 @@ class ProductRecord(BaseModel):
     source: Source
     collectedAt: str
     content: ProductContent
+
+class NewsContent(BaseModel):
+    title: str
+    url: str
+    published_date: str
+    date_source: str
+    date_confidence: str          # exact | day | inferred
+    full_text: str
+    text_length: int
+    companies: list[str] = []
+
+    @field_validator("title")
+    @classmethod
+    def _title(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("empty title")
+        return v
+
+    @field_validator("url")
+    @classmethod
+    def _url(cls, v: str) -> str:
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("url must be http(s)")
+        return v
+
+    @field_validator("published_date")
+    @classmethod
+    def _date(cls, v: str) -> str:
+        datetime.fromisoformat(v.replace("Z", "+00:00"))
+        return v
+
+    @field_validator("full_text")
+    @classmethod
+    def _text(cls, v: str) -> str:
+        if len(v) < 300:
+            raise ValueError("full text too short")
+        return v
+
+
+class NewsRecord(BaseModel):
+    schemaVersion: str = "1.0"
+    recordType: Literal["NEWS"] = "NEWS"
+    source: Source
+    collectedAt: str
+    content: NewsContent
+
+ROLE_FAMILIES = {"Engineering", "Research", "Data", "Product", "Design", "Sales", "Marketing", "Customer Success",
+                 "Recruiting", "Finance", "Legal", "Security", "Operations", "Other"}
+
+
+class JobContent(BaseModel):
+    company: str
+    date: str
+    is_remote: bool
+    role_family: str
+    title: str
+    location: str | None = None
+    description: str
+    text_length: int
+    date_source: str
+    date_confidence: str
+
+    @field_validator("company", "title")
+    @classmethod
+    def _not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("empty value")
+        return v
+
+    @field_validator("date")
+    @classmethod
+    def _date(cls, v: str) -> str:
+        datetime.fromisoformat(v.replace("Z", "+00:00"))
+        return v
+
+    @field_validator("role_family")
+    @classmethod
+    def _family(cls, v: str) -> str:
+        if v not in ROLE_FAMILIES:
+            raise ValueError("unknown role family")
+        return v
+
+    @field_validator("description")
+    @classmethod
+    def _description(cls, v: str) -> str:
+        if len(v) < 100:
+            raise ValueError("description too short")
+        return v
+
+
+class JobRecord(BaseModel):
+    schemaVersion: str = "1.0"
+    recordType: Literal["JOB"] = "JOB"
+    source: Source
+    collectedAt: str
+    content: JobContent

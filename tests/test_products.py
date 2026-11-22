@@ -53,3 +53,10 @@ def test_company_must_be_on_page():
 def test_comparison_page_is_not_attributed_to_the_company():
     text = "Us vs Shopify: Shopify costs $29/month. Alternatives and competitors charge $39/month."
     assert classify(text)[0] is None
+
+def test_rules_never_assign_free():
+    assert classify("Free forever $0/month for everyone")[0] is None
+
+
+def test_create_free_account_is_not_a_free_plan():
+    assert classify("Create a free account. Pro $29/month")[0] == "PAID"
