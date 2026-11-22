@@ -64,6 +64,7 @@ class EntityResolver:
         self.by_key: dict[str, tuple[str, str]] = {}      # squashed name -> (canonical, 'canonical'|'alias')
         self.by_core: dict[str, set[str]] = {}
         self.by_domain: dict[str, str] = {}
+        self.seed_keys: set[str] = set()
         for s in seeds:
             self._add(s["canonical"], s.get("aliases", []), s.get("domain"), strict=True)
 
@@ -77,10 +78,13 @@ class EntityResolver:
                     raise ValueError(f"seed conflict: '{name}' maps to both '{existing[0]}' and '{canonical}'")
                 continue
             self.by_key.setdefault(key, (canonical, kind))
-            self.by_core.setdefault(core_key(norm), set()).add(canonical)
+            if strict:        # core / fuzzy / domain matching only against the curated seed list
+                self.seed_keys.add(key)
+                self.by_core.setdefault(core_key(norm), set()).add(canonical)
         d = domain_of(domain)
-        if d:
+        if d and strict:
             self.by_domain.setdefault(d, canonical)
+
 
     def _match_domain(self, domain: str | None) -> str | None:
         d = domain_of(domain)
@@ -97,7 +101,8 @@ class EntityResolver:
         if max_d == 0:
             return None
         best: dict[str, tuple[int, str]] = {}                  # canonical -> (distance, matched key)
-        for k, (canon, _) in self.by_key.items():
+        for k in self.seed_keys:
+            canon = self.by_key[k][0]
             if len(k) < 6 or abs(len(k) - n) > max_d or k[0] != key[0]:
                 continue
             d = Levenshtein.distance(key, k)
@@ -111,7 +116,7 @@ class EntityResolver:
         canon, (_, k) = ranked[0]
         return canon, round(fuzz.ratio(key, k), 1)
 
-    def resolve(self, raw: str, domain: str | None = None) -> Resolution:
+    def resolve(self, raw: str, domain: str | None = None, allow_fuzzy: bool = True) -> Resolution:
         raw_clean = " ".join((raw or "").split())
         if not raw_clean:
             return Resolution(raw or "", "", "empty", None, False)
@@ -130,7 +135,7 @@ class EntityResolver:
         if cands and len(cands) == 1 and len(core_key(norm)) >= 3:
             return Resolution(raw, next(iter(cands)), "core_name", 95.0, False)
 
-        fuzzy = self._match_fuzzy(key)
+        fuzzy = self._match_fuzzy(key) if allow_fuzzy else None
         if fuzzy:
             return Resolution(raw, fuzzy[0], "fuzzy_edit_distance", fuzzy[1], False)
 
@@ -138,8 +143,8 @@ class EntityResolver:
         self._add(display, [], domain)                         # remember it: same name -> same canonical
         return Resolution(raw, display, "new_entity", None, True)
 
-    async def resolve_and_log(self, db, raw: str, record_type: str, domain: str | None = None) -> Resolution:
-        r = self.resolve(raw, domain)
+    async def resolve_and_log(self, db, raw: str, record_type: str, domain: str | None = None, allow_fuzzy: bool = True) -> Resolution:
+        r = self.resolve(raw, domain, allow_fuzzy)
         await db.log_entity(record_type, raw, r.canonical, r.method, r.score)
         return r
 

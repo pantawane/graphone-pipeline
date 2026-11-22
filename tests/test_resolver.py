@@ -61,3 +61,17 @@ def test_seed_conflict_is_rejected():
     seeds = [{"canonical": "A Corp", "aliases": ["Shared"]}, {"canonical": "B Corp", "aliases": ["Shared"]}]
     with pytest.raises(ValueError):
         EntityResolver(seeds)
+
+def test_new_entities_never_fuzzy_merge(resolver):
+    a = resolver.resolve("Notable")
+    b = resolver.resolve("Notably")
+    assert a.is_new and b.is_new and a.canonical == "Notable" and b.canonical == "Notably"
+
+
+def test_new_entity_domain_is_not_registered(resolver):
+    a = resolver.resolve("Alpha Co", domain="https://medium.com/@alpha")
+    b = resolver.resolve("Beta Co", domain="https://medium.com/@beta")
+    assert a.canonical == "Alpha" and b.canonical == "Beta" and b.is_new
+
+def test_fuzzy_can_be_disabled(resolver):
+    assert resolver.resolve("Anthropik", allow_fuzzy=False).is_new

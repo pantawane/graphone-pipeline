@@ -73,3 +73,59 @@ class ResearchPaperRecord(BaseModel):
     source: Source
     collectedAt: str
     content: PaperContent
+
+class StartupData(BaseModel):
+    employeeCount: int | None = None
+    website: str | None = None
+    description: str | None = None
+    aiRelated: bool | None = None
+
+    @field_validator("employeeCount")
+    @classmethod
+    def _emp(cls, v: int | None) -> int | None:
+        if v is not None and v < 0:
+            raise ValueError("negative employeeCount")
+        return v
+
+
+class StartupContent(BaseModel):
+    entityName: str
+    data: StartupData
+
+    @field_validator("entityName")
+    @classmethod
+    def _name(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("empty entityName")
+        return v
+
+
+class StartupRecord(BaseModel):
+    schemaVersion: str = "1.0"
+    recordType: Literal["STARTUP"] = "STARTUP"
+    source: Source
+    collectedAt: str
+    content: StartupContent
+
+class ProductContent(BaseModel):
+    startupName: str
+    pricingModel: Literal["FREE", "FREEMIUM", "PAID", "ENTERPRISE"]
+    description: str | None = None
+    pricingUrl: str
+    evidence: list[str]
+    method: str = "rules"
+
+    @field_validator("evidence")
+    @classmethod
+    def _evidence(cls, v: list[str]) -> list[str]:
+        if not v or not all(x.strip() for x in v):
+            raise ValueError("evidence required")
+        return v
+
+
+class ProductRecord(BaseModel):
+    schemaVersion: str = "1.0"
+    recordType: Literal["PRODUCT"] = "PRODUCT"
+    source: Source
+    collectedAt: str
+    content: ProductContent

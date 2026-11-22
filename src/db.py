@@ -96,6 +96,13 @@ CREATE TABLE IF NOT EXISTS crawl_state (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (source, key)
 );
+CREATE TABLE IF NOT EXISTS llm_usage (
+    tier     TEXT NOT NULL,
+    day      TEXT NOT NULL,
+    requests INTEGER NOT NULL DEFAULT 0,
+    tokens   INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (tier, day)
+);
 """
 
 
@@ -213,3 +220,19 @@ class Database:
         cur = await self.conn.execute("SELECT value FROM crawl_state WHERE source=? AND key=?", (source, key))
         row = await cur.fetchone()
         return row[0] if row else None
+
+    async def add_llm_usage(self, tier: str, requests: int, tokens: int) -> None:
+        day = utc_now_iso()[:10]
+        await self.conn.execute(
+            "INSERT INTO llm_usage (tier, day, requests, tokens) VALUES (?,?,?,?) "
+            "ON CONFLICT(tier, day) DO UPDATE SET requests = requests + excluded.requests, "
+            "tokens = tokens + excluded.tokens",
+            (tier, day, requests, tokens),
+        )
+        await self.conn.commit()
+
+    async def get_llm_usage(self, tier: str) -> tuple[int, int]:
+        day = utc_now_iso()[:10]
+        cur = await self.conn.execute("SELECT requests, tokens FROM llm_usage WHERE tier=? AND day=?", (tier, day))
+        row = await cur.fetchone()
+        return (row[0], row[1]) if row else (0, 0)
