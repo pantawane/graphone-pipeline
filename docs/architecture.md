@@ -1,6 +1,6 @@
 # FrontierAtlas / GraphOne: Ingestion Pipeline Architecture
 
-_Generated 2026-11-23 03:29 UTC. All counts are read from the pipeline database and export files._
+_Generated 2026-11-23 11:55 UTC. All counts are read from the pipeline database and export files._
 
 ## 1. Overview
 
@@ -11,17 +11,17 @@ An **asynchronous Python pipeline (asyncio + aiohttp)** built only from free too
 | Tab | Rows | How it was obtained |
 |---|---|---|
 | Startups | 4,350 | YC public directory via the yc-oss API; employeeCount = team_size (null if absent); no LLM |
-| Products | 779 | company pricing pages: 504 by rules, 275 by the LLM chain with evidence checks |
+| Products | 780 | company pricing pages: 505 by rules, 275 by the LLM chain with evidence checks |
 | Research Papers | 1,200 | Papers with Code archive (official links) + arXiv API + GitHub API stars; no LLM |
-| Jobs (last 24 h) | 49 | Greenhouse, Ashby, We Work Remotely, Himalayas, Arbeitnow (real date fields) |
-| News (last 24 h) | 17 | TechCrunch, The Verge, Wired, Ars Technica RSS + Hacker News API (publisher dates only) |
-| Entity Mapping Log | 4,460 | raw name, canonical name, method and score for every resolved name |
+| Jobs (last 24 h) | 65 | Greenhouse, Ashby, We Work Remotely, Himalayas, Arbeitnow (real date fields) |
+| News (last 24 h) | 21 | TechCrunch, The Verge, Wired, Ars Technica RSS + Hacker News API (publisher dates only) |
+| Entity Mapping Log | 4,481 | raw name, canonical name, method and score for every resolved name |
 
 ## 2. Scale strategy: 500,000 startups, products and papers without manual intervention
 
 - **Bulk-first sources.** Papers come from an archive of 300,161 paper-to-code links (loaded in seconds) plus the arXiv API in batches of 50 ids at one request per 3 s as arXiv asks: 500,000 papers = 10,000 requests = about 8.3 h on one node. GitHub stars are the bottleneck (5,000 REST calls per hour per token), so production batches many repositories per GraphQL request and rotates tokens (production design).
 - **Frontier plus stateless workers.** URLs go to a queue sharded by domain; workers are stateless, idempotent and resumable (progress lives in `crawl_state`, every table has a unique key). Scaling means more workers and a shared Postgres/Redis, not code changes; per-domain token buckets keep politeness constant as workers grow.
-- **Cheapest extractor first: API or file, then rules, then LLM.** Of 4,350 startup sites attempted, 504 produced a product by rules alone and 275 more through the LLM chain; the rest had no public pricing page, were blocked or were unclear.
+- **Cheapest extractor first: API or file, then rules, then LLM.** Of 4,350 startup sites attempted, 505 produced a product by rules alone and 275 more through the LLM chain; the rest had no public pricing page, were blocked or were unclear.
 - **LLM cost control.** LLM calls grow with the share of ambiguous pages, not with total pages (1,130 requests, 1,402,156 tokens in this run, on free tiers capped at about 500 requests per day on the first tier). At 500,000 scale the same orchestrator fronts a self-hosted open model with batching; tiers are configuration (`config/llm.json`).
 - **Refresh and monitoring (production).** Conditional requests (ETag, If-Modified-Since), per-source `first_seen` watermarks and TTL-based re-checks; per-source yield, 403/429 rates and tier usage are already queryable from `crawl_state` and `llm_usage`, so alerts can fire when a source's yield drops.
 
@@ -69,7 +69,7 @@ An **asynchronous Python pipeline (asyncio + aiohttp)** built only from free too
 
 ## 8. Known limitations
 
-- Products: 779 rows. Pricing models come from page text, not ground truth; the evidence quotes are in the Products tab so each label can be audited. Free-tier LLM quotas and Gemma capacity errors limited how many ambiguous pages were recovered.
+- Products: 780 rows. Pricing models come from page text, not ground truth; the evidence quotes are in the Products tab so each label can be audited. Free-tier LLM quotas and Gemma capacity errors limited how many ambiguous pages were recovered.
 - Startup `employeeCount` is the company's own self-reported YC team size and may be stale; it is null when absent.
 - News and jobs are a snapshot of the 24 hours before the final crawl; volume depends on the weekday (the first test runs happened on a Sunday).
 - Remotive and RemoteOK were evaluated and excluded: their feeds are delayed by about a day, so they cannot satisfy the 24-hour rule. Himalayas, Arbeitnow and We Work Remotely are general boards filtered by AI keywords in the title, so AI roles with other titles are missed.
