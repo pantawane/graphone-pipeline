@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
-from src.sources.news import html_to_text, is_ai_article, make_company_validator, parse_hn_html
+
 import pytest
 from pydantic import ValidationError
 
 from src.schemas import NewsContent
-from src.sources.news import html_to_text, make_company_validator, parse_hn_html
+from src.sources.news import html_to_text, is_ai_article, make_company_validator, parse_hn_html
 
 NOW = datetime(2026, 11, 22, 12, 0, tzinfo=timezone.utc)
 HN = (

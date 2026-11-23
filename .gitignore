@@ -1,4 +1,8 @@
-.venv/
 .env
+.venv/
 data/
+output/
+backup_before_patch/
 __pycache__/
+.pytest_cache/
+*.db
