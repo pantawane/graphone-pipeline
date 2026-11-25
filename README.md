@@ -7,16 +7,16 @@ task's canonical schemas, resolves company names to canonical entities and expor
 **Core rule:** no record is stored unless it traces to a fetched source URL. LLM output is accepted only if the evidence it
 quotes exists verbatim in the source text; otherwise no record is created.
 
-## Results (generated 2026-11-23 03:29 UTC from the database)
+## Results (generated 2026-11-23 11:55 UTC from the database)
 
 | Tab | Rows | Source / method |
 |---|---|---|
 | Startups | 4,350 | YC public directory via the yc-oss API; employeeCount = team_size (null if absent); no LLM |
-| Products | 779 | company pricing pages: 504 by rules, 275 by the LLM chain with evidence checks |
+| Products | 780 | company pricing pages: 505 by rules, 275 by the LLM chain with evidence checks |
 | Research Papers | 1,200 | Papers with Code archive (official links) + arXiv API + GitHub API stars; no LLM |
-| Jobs (last 24 h) | 49 | Greenhouse, Ashby, We Work Remotely, Himalayas, Arbeitnow (real date fields) |
-| News (last 24 h) | 17 | TechCrunch, The Verge, Wired, Ars Technica RSS + Hacker News API (publisher dates only) |
-| Entity Mapping Log | 4,460 | raw name, canonical name, method and score for every resolved name |
+| Jobs (last 24 h) | 65 | Greenhouse, Ashby, We Work Remotely, Himalayas, Arbeitnow (real date fields) |
+| News (last 24 h) | 21 | TechCrunch, The Verge, Wired, Ars Technica RSS + Hacker News API (publisher dates only) |
+| Entity Mapping Log | 4,481 | raw name, canonical name, method and score for every resolved name |
 
 Design, scale strategy and the 413/429, freshness and storage answers: [`architecture.pdf`](architecture.pdf)
 (source: [`docs/architecture.md`](docs/architecture.md)).
@@ -44,7 +44,7 @@ into `data/pwc/`. Model ids and free-tier limits are in `config/llm.json` (check
 | Step | Command | Output |
 |---|---|---|
 | Papers | `python run_papers.py 1200` | RESEARCH_PAPER records with GitHub stars |
-| Startups | `python run_startups.py --all` | STARTUP records (YC directory, `aiRelated` flag) |
+| Startups | `python run_startups.py --all` | STARTUP records (YC directory; `yc_ai_tag` = tagged AI by YC) |
 | Products (rules) | `python run_products.py 5000` | PRODUCT records from pricing pages |
 | Products (LLM) | `python run_products_llm.py 400` | repeat daily while quotas allow; resumable |
 | Products (JavaScript pages) | `python run_render.py 150 --llm` | pages that need a browser (`--demo` shows static vs rendered) |
@@ -103,6 +103,17 @@ Excluded on purpose: Remotive and RemoteOK (their feeds are delayed by about 24 
 
 Free tiers only (Gemini Flash-Lite, Groq Qwen and GPT-OSS, Gemma). Only public web text is sent to the models. Free-tier
 content may be used by the provider to improve its products, so private data must never go through this pipeline.
+
+## Diagnostic and maintenance scripts
+
+| Script | Purpose |
+|---|---|
+| `status.py` | counts of records, product outcomes, news/job sources and LLM usage |
+| `audit_final.py` | schema, URL and evidence checks plus a 30-row manual sample |
+| `revalidate_products.py`, `revalidate_llm.py` | re-check stored products against their saved pages with the current rules |
+| `clean_jobs.py`, `clean_news.py` | remove stored items that no longer pass the current filters |
+| `run_jobs.py --peek / --boards`, `run_render.py --demo` | inspect real source fields and static vs rendered pages |
+| `spike_*.py`, `compare_models.py`, `time_gemma.py`, `fix_*.py`, `check_*.py`, `inspect_pwc.py`, `filter_pwc.py` | one-off experiments that informed source and model choices (kept for transparency) |
 
 ## Known limitations
 

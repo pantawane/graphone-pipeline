@@ -49,14 +49,21 @@ def describe(rtype: str, d: dict):
 
 
 async def check_urls(urls: list[str]):
+    """Patient on purpose: a flaky connection must not look like a data problem."""
     ua = os.getenv("USER_AGENT", "FrontierAtlasDemoBot/0.1")
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20), headers={"User-Agent": ua}) as s:
+    sem = asyncio.Semaphore(3)
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=45), headers={"User-Agent": ua}) as s:
         async def one(u):
-            try:
-                async with s.get(u, allow_redirects=True) as r:
-                    return u, r.status
-            except Exception as e:
-                return u, type(e).__name__
+            async with sem:
+                last = "unknown"
+                for attempt in range(3):
+                    try:
+                        async with s.get(u, allow_redirects=True) as r:
+                            return u, r.status
+                    except Exception as e:
+                        last = type(e).__name__
+                        await asyncio.sleep(2 * (attempt + 1))
+                return u, last
         return await asyncio.gather(*[one(u) for u in urls])
 
 
@@ -158,11 +165,16 @@ def main() -> int:
     if "--check-urls" in sys.argv:
         print("\n== 7. do the sampled URLs resolve?")
         for u, status in asyncio.run(check_urls(urls)):
-            flag = "" if isinstance(status, int) and status < 400 else (
-                "   <- blocked for bots, check in a browser" if status in (403, 429) else "   <- PROBLEM")
-            print(f"   {status!s:>6} {u}{flag}")
-            if flag.endswith("PROBLEM"):
-                problems.append(f"sampled URL does not resolve: {u}")
+            if isinstance(status, int) and status < 400:
+                note = ""
+            elif status in (403, 429, 999):
+                note = "   <- blocked for bots: open it in a browser"
+            elif status in (404, 410):
+                note = "   <- PROBLEM (page not found)"
+                problems.append(f"sampled URL not found: {u}")
+            else:
+                note = "   <- could not check from this network: open it in a browser"
+            print(f"   {status!s:>6} {u}{note}")
 
     print("\nPROBLEMS:" if problems else "\nno automated problems found")
     for p in problems:

@@ -38,7 +38,7 @@ def startups(con):
         data = c["data"]
         out.append({**base(d), "content.entityName": c["entityName"],
                     "content.data.employeeCount": data.get("employeeCount"), "website": data.get("website"),
-                    "description": data.get("description"), "aiRelated": data.get("aiRelated"),
+                    "description": data.get("description"), "yc_ai_tag": data.get("aiRelated"),
                     "collectedAt": d["collectedAt"]})
     return pd.DataFrame(out)
 
