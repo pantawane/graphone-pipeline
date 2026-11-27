@@ -1,4 +1,4 @@
-# FrontierAtlas / GraphOne: AI intelligence-graph ingestion pipeline (AI Engineer demo task)
+# FrontierAtlas / GraphOne: AI intelligence-graph ingestion pipeline 
 
 An asynchronous Python pipeline that collects startups, products, research papers, jobs and news, turns them into the
 task's canonical schemas, resolves company names to canonical entities and exports the six required tabs.
